@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Akıllı Finans Asistanı</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+      body {
+        background-color: #f0f2f5;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      .sidebar {
+        height: 100vh;
+        width: 250px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        background: #2c3e50;
+        color: white;
+        padding-top: 20px;
+      }
+      .sidebar a {
+        padding: 15px 25px;
+        text-decoration: none;
+        font-size: 18px;
+        color: #b8c7ce;
+        display: block;
+      }
+      .sidebar a:hover {
+        color: white;
+        background-color: #1a252f;
+      }
+      .sidebar .brand {
+        font-size: 22px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 30px;
+        color: #fff;
+      }
+      .main-content {
+        margin-left: 250px;
+        padding: 20px;
+      }
+      .stat-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        transition: 0.3s;
+      }
+      .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+      .card-header-custom {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+        color: white;
+        border-radius: 10px 10px 0 0 !important;
+        font-weight: bold;
+      }
+      .fab-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        font-size: 24px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+      }
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar">
+      <div class="brand"><i class="fa-solid fa-chart-line"></i> Finans AI</div>
+      <a href="#" onclick="anaSayfayaDon()"
+        ><i class="fa-solid fa-house"></i> Dashboard</a
+      >
+      <a href="#"><i class="fa-solid fa-wallet"></i> Giderler (Yakında)</a>
+      <a href="#"><i class="fa-solid fa-gear"></i> Ayarlar</a>
+    </div>
+
+    <div class="main-content">
+      <div id="dashboardEkrani">
+        <h3 class="mb-4 text-dark">Projelerim ve Şirketler</h3>
+        <div class="row" id="projeListesi"></div>
+      </div>
+
+      <div id="analizEkrani" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 id="seciliProjeAdi">
+            <i class="fa-solid fa-briefcase"></i> Proje Adı
+          </h3>
+          <div class="d-flex align-items-center">
+            <select
+              id="modelSecici"
+              class="form-select form-select-sm me-3"
+              style="width: auto; font-weight: bold"
+              onchange="grafigiGuncelle()"
+            >
+              <option value="ARIMA" selected>🤖 Model: ARIMA</option>
+              <option value="ETS">📈 Model: Holt-Winters (ETS)</option>
+              <option value="NNETAR">🧠 Model: Yapay Sinir Ağı (NNETAR)</option>
+              <option value="AUTO">🏆 Auto-Model (En İyiyi Seç)</option>
+            </select>
+            <button class="btn btn-danger btn-sm me-2" onclick="projeyiSil()">
+              <i class="fa-solid fa-trash"></i> Sil
+            </button>
+            <button class="btn btn-warning btn-sm" onclick="pdfIndir()">
+              <i class="fa-solid fa-file-pdf"></i> İndir
+            </button>
+          </div>
+        </div>
+
+        <div id="raporAlani">
+          <div class="row">
+            <div class="col-md-8">
+              <div class="card stat-card mb-3">
+                <div class="card-header card-header-custom">
+                  Gelir Analizi & Tahmin
+                </div>
+                <div class="card-body">
+                  <canvas id="gelirGrafigi"></canvas>
+                </div>
+              </div>
+              <div class="alert alert-light border shadow-sm" id="tahminKutusu">
+                Veri analizi bekleniyor...
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="card stat-card p-3">
+                <h5 class="text-secondary">
+                  <i class="fa-solid fa-plus-circle"></i> Veri Ekle
+                </h5>
+                <input
+                  type="text"
+                  id="yeniAy"
+                  class="form-control mb-2"
+                  placeholder="Ay (Örn: Mart)"
+                />
+                <input
+                  type="number"
+                  id="yeniTutar"
+                  class="form-control mb-2"
+                  placeholder="Tutar (TL)"
+                />
+                <button class="btn btn-success w-100 mb-3" onclick="veriEkle()">
+                  Ekle ve Analiz Et
+                </button>
+
+                <hr />
+                <h6><i class="fa-solid fa-file-excel"></i> Excel Yükle</h6>
+                <div class="input-group mb-2">
+                  <input
+                    type="file"
+                    id="excelInput"
+                    class="form-control"
+                    accept=".xlsx, .xls"
+                  />
+                  <button
+                    class="btn btn-outline-primary"
+                    type="button"
+                    onclick="excelYukle()"
+                  >
+                    Yükle
+                  </button>
+                </div>
+
+                <hr />
+                <h6 class="text-muted">Geçmiş Kayıtlar</h6>
+                <ul
+                  class="list-group list-group-flush"
+                  id="gecmisListe"
+                  style="max-height: 200px; overflow-y: auto"
+                ></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button
+      class="btn btn-primary fab-btn"
+      data-bs-toggle="modal"
+      data-bs-target="#yeniProjeModal"
+    >
+      <i class="fa-solid fa-plus"></i>
+    </button>
+
+    <div class="modal fade" id="yeniProjeModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Yeni Proje Oluştur</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <input
+              type="text"
+              id="modalProjeAdi"
+              class="form-control mb-2"
+              placeholder="Proje Adı"
+            />
+            <textarea
+              id="modalAciklama"
+              class="form-control"
+              placeholder="Açıklama"
+            ></textarea>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="projeOlustur()"
+            >
+              Oluştur
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const API_URL = "https://unscholastically-liny-hung.ngrok-free.dev";
+
+      let AKTIF_PROJE_ID = null;
+      let chartInstance = null;
+      window.onload = projeleriGetir;
+
+      function anaSayfayaDon() {
+        document.getElementById("dashboardEkrani").classList.remove("hidden");
+        document.getElementById("analizEkrani").classList.add("hidden");
+        projeleriGetir();
+      }
+
+      async function projeleriGetir() {
+        const res = await fetch(`${API_URL}/api/projeler`, {
+          headers: { "ngrok-skip-browser-warning": "true" },
+        });
+        const projeler = await res.json();
+        const liste = document.getElementById("projeListesi");
+        liste.innerHTML = "";
+
+        projeler.forEach((p) => {
+          liste.innerHTML += `
+            <div class="col-md-4 mb-3">
+                <div class="card stat-card h-100" onclick="analiziAc(${p.id}, '${p.ad}')" style="cursor: pointer;">
+                    <div class="card-body text-center">
+                        <div class="mb-3 text-primary"><i class="fa-solid fa-chart-pie fa-3x"></i></div>
+                        <h5 class="card-title">${p.ad}</h5>
+                        <p class="card-text text-muted small">${p.aciklama || "Açıklama yok"}</p>
+                        <span class="badge bg-secondary">${p.olusturma_tarihi}</span>
+                    </div>
+                </div>
+            </div>`;
+        });
+      }
+
+      async function projeOlustur() {
+        const ad = document.getElementById("modalProjeAdi").value;
+        const aciklama = document.getElementById("modalAciklama").value;
+        await fetch(`${API_URL}/api/projeler`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ad, aciklama }),
+        });
+        bootstrap.Modal.getInstance(
+          document.getElementById("yeniProjeModal"),
+        ).hide();
+        document.getElementById("modalProjeAdi").value = "";
+        projeleriGetir();
+      }
+
+      async function analiziAc(id, ad) {
+        AKTIF_PROJE_ID = id;
+        document.getElementById("seciliProjeAdi").innerHTML =
+          `<i class="fa-solid fa-briefcase"></i> ${ad}`;
+        document.getElementById("dashboardEkrani").classList.add("hidden");
+        document.getElementById("analizEkrani").classList.remove("hidden");
+        grafigiGuncelle();
+      }
+
+      // DÜZELTİLEN KISIM: grafigiGuncelle ARTIK SEÇİLEN MODELİ OKUYOR
+      async function grafigiGuncelle() {
+        const secilenModel = document.getElementById("modelSecici").value;
+
+        const res = await fetch(
+          `${API_URL}/api/analiz/${AKTIF_PROJE_ID}?model=${secilenModel}`,
+          {
+            headers: { "ngrok-skip-browser-warning": "true" },
+          },
+        );
+        const veri = await res.json();
+
+        const liste = document.getElementById("gecmisListe");
+        liste.innerHTML = "";
+
+        const veriler = veri.detaylar || [];
+        veriler.forEach((v) => {
+          liste.innerHTML += `
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>${v.ay}</span>
+                <div>
+                    <strong>${v.tutar} ₺</strong>
+                    <i class="fa-solid fa-trash text-danger ms-2" style="cursor:pointer" onclick="veriSil(${v.id})"></i>
+                </div>
+            </li>`;
+        });
+
+        if (veri.durum === "yetersiz_veri") {
+          document.getElementById("tahminKutusu").className =
+            "alert alert-warning";
+          document.getElementById("tahminKutusu").innerText =
+            "⚠️ Tahmin için en az 2 veri girişi yapmalısınız.";
+          if (chartInstance) chartInstance.destroy();
+          return;
+        }
+
+        const tahminTutar = veri.tahmin ? veri.tahmin.toFixed(2) : 0;
+        const modelEtiketi =
+          veri.kullanilan_model === "AUTO"
+            ? "Auto-Seçilmiş En İyi Model"
+            : veri.kullanilan_model;
+
+        document.getElementById("tahminKutusu").className =
+          "alert alert-success d-flex align-items-center";
+        document.getElementById("tahminKutusu").innerHTML = `
+                <i class="fa-solid fa-robot fa-2x me-3"></i>
+                <div>
+                    <strong>${modelEtiketi} Tahmini:</strong><br>
+                    Gelecek ay cironun <b>${tahminTutar} TL</b> olması bekleniyor.
+                </div>`;
+
+        const ctx = document.getElementById("gelirGrafigi").getContext("2d");
+        if (chartInstance) chartInstance.destroy();
+
+        // Çizginin tam oturması için veri dizilimi hesaplaması
+        const tahminVerisi = Array(veri.gecmis_veriler.length - 1).fill(null);
+        tahminVerisi.push(veri.gecmis_veriler[veri.gecmis_veriler.length - 1]);
+        tahminVerisi.push(veri.tahmin);
+
+        chartInstance = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [...veri.gecmis_aylar, "TAHMİN"],
+            datasets: [
+              {
+                label: "Gerçekleşen Ciro",
+                data: [...veri.gecmis_veriler, null],
+                borderColor: "#2c3e50",
+                borderWidth: 2,
+                pointBackgroundColor: "#2c3e50",
+                tension: 0.4,
+              },
+              {
+                label: "AI Tahmini",
+                data: tahminVerisi,
+                borderColor: "#e74c3c",
+                borderDash: [5, 5],
+                backgroundColor: "rgba(231, 76, 60, 0.2)",
+                fill: true,
+              },
+            ],
+          },
+          options: { responsive: true },
+        });
+      }
+
+      async function veriEkle() {
+        const ay = document.getElementById("yeniAy").value;
+        const tutar = document.getElementById("yeniTutar").value;
+        if (!ay || !tutar) return alert("Boş alan bırakmayın");
+        await fetch(`${API_URL}/api/veri-ekle`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ proje_id: AKTIF_PROJE_ID, ay, tutar }),
+        });
+        document.getElementById("yeniAy").value = "";
+        document.getElementById("yeniTutar").value = "";
+        grafigiGuncelle();
+      }
+
+      async function veriSil(id) {
+        if (!confirm("Silinsin mi?")) return;
+        await fetch(`${API_URL}/api/veri-sil/${id}`, { method: "DELETE" });
+        grafigiGuncelle();
+      }
+
+      async function excelYukle() {
+        const fileInput = document.getElementById("excelInput");
+        const dosya = fileInput.files[0];
+        if (!dosya) return alert("Dosya seçin!");
+        const formData = new FormData();
+        formData.append("excelDosyasi", dosya);
+        formData.append("proje_id", AKTIF_PROJE_ID);
+
+        try {
+          const res = await fetch(`${API_URL}/api/excel-yukle`, {
+            method: "POST",
+            body: formData,
+          });
+          const sonuc = await res.json();
+          alert(sonuc.mesaj);
+          grafigiGuncelle();
+        } catch (e) {
+          alert("Hata oluştu");
+        }
+      }
+
+      async function projeyiSil() {
+        if (confirm("Projeyi silmek istediğine emin misin?")) {
+          await fetch(`${API_URL}/api/projeler/${AKTIF_PROJE_ID}`, {
+            method: "DELETE",
+          });
+          anaSayfayaDon();
+        }
+      }
+
+      window.jsPDF = window.jspdf.jsPDF;
+      function pdfIndir() {
+        const element = document.getElementById("raporAlani");
+        html2canvas(element).then((canvas) => {
+          const imgData = canvas.toDataURL("image/png");
+          const pdf = new jsPDF("p", "mm", "a4");
+          const imgProps = pdf.getImageProperties(imgData);
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+          pdf.text("Akilli Finans - Proje Raporu", 10, 10);
+          pdf.addImage(imgData, "PNG", 0, 20, pdfWidth, pdfHeight);
+          pdf.save("finans-raporu.pdf");
+        });
+      }
+    </script>
+  </body>
+</html>
